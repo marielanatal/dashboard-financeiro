@@ -38,42 +38,46 @@ if uploaded_file:
         )
 
     # ================= GRÁFICO LADO A LADO =================
-    st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
+st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
-    df_plot = df[df["Ano"].isin([2024, 2025])].copy()
-    df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
+# GARANTE QUE O ANO É NUMÉRICO — ESSA LINHA RESOLVE O PROBLEMA DO GRÁFICO EMPILHADO
+df["Ano"] = df["Ano"].astype(int)
 
-    df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
-        lambda x: f"R$ {x:,.0f}".replace(",", ".")
-    )
+df_plot = df[df["Ano"].isin([2024, 2025])].copy()
+df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
 
-    fig = px.bar(
-        df_plot,
-        x="Mês",
-        y="Faturamento - Valor",
-        color="Ano",
-        barmode="group",  # <--- LADO A LADO REAL
-        text="Valor_fmt",
-        color_discrete_map={
-            2024: "#FF8C00",  # Laranja escuro
-            2025: "#005BBB",  # Azul forte
-        }
-    )
+df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
+    lambda x: f"R$ {x:,.0f}".replace(",", ".")
+)
 
-    fig.update_traces(
-        textposition="outside",
-        textfont=dict(size=12, color="black")
-    )
+fig = px.bar(
+    df_plot,
+    x="Mês",
+    y="Faturamento - Valor",
+    color="Ano",
+    barmode="group",  # LADO A LADO REAL
+    text="Valor_fmt",
+    color_discrete_map={
+        2024: "#FF8C00",  # Laranja escuro
+        2025: "#005BBB",  # Azul forte
+    }
+)
 
-    fig.update_layout(
-        yaxis_title="Faturamento (R$)",
-        xaxis_title="Mês",
-        bargap=0.25,
-        height=550,
-        plot_bgcolor="white"
-    )
+fig.update_traces(
+    textposition="outside",
+    textfont=dict(size=12, color="black")
+)
 
-    st.plotly_chart(fig, use_container_width=True)
+fig.update_layout(
+    yaxis_title="Faturamento (R$)",
+    xaxis_title="Mês",
+    bargap=0.25,
+    height=550,
+    plot_bgcolor="white"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
 
     # ================= TABELA FINAL PIVOTADA =================
     st.subheader("📄 Tabela Comparativa (Pivotada)")
