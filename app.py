@@ -2,109 +2,110 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# -------------------- CONFIGURAÇÃO --------------------
-st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
+st.set_page_config(
+    page_title="Dashboard Financeiro",
+    layout="wide"
+)
 
-st.markdown("""
-<style>
-.big-title {
-    font-size: 36px !important;
-    font-weight: 700 !important;
-    color: #1f4e79 !important;
-}
-.kpi-box {
-    background: white;
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.15);
-}
-.kpi-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #444;
-}
-.kpi-value {
-    font-size: 28px;
-    font-weight: 800;
-    margin-top: 4px;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("📊 Dashboard Financeiro")
 
-st.markdown("<div class='big-title'>📊 Dashboard Financeiro – Comparativo 2024 x 2025</div>", unsafe_allow_html=True)
-
-# -------------------- UPLOAD --------------------
-uploaded_file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
+# ==============================
+# Upload do arquivo
+# ==============================
+st.subheader("Envie sua planilha Excel")
+uploaded_file = st.file_uploader("Selecione o arquivo", type=["xlsx"])
 
 if uploaded_file:
-
     df = pd.read_excel(uploaded_file)
 
-    # Identifica nome da coluna de Mês
-    col_mes = [c for c in df.columns if "Mês" in c][0]
+    # Garantir formatação numérica
+    df["Faturamento - Valor"] = pd.to_numeric(df["Faturamento - Valor"], errors="coerce")
+    df["Meta"] = pd.to_numeric(df["Meta"], errors="coerce")
 
-    # Criar número do mês
-    df["Mes_Num"] = df[col_mes].str[:2].astype(int)
+    # Extrai número do mês para ordenar
+    df["Mês_num"] = df["Mês"].str[:2].astype(int)
 
-    df = df.sort_values(["Ano", "Mes_Num"])
+    # ==============================
+    # CARDS POR ANO
+    # ==============================
+    st.subheader("📌 Indicadores Gerais")
 
-    anos = sorted(df["Ano"].unique())
-    dados_anos = {}
+    col1, col2 = st.columns(2)
 
-    for ano in anos:
+    for ano, col in zip([2024, 2025], [col1, col2]):
         df_ano = df[df["Ano"] == ano]
-        fat = df_ano["Faturamento - Valor"].sum()
-        meta = df_ano["Meta"].sum()
-        ating = (fat / meta * 100) if meta > 0 else 0
 
-        dados_anos[ano] = {"fat": fat, "meta": meta, "ating": ating}
+        fat_total = df_ano["Faturamento - Valor"].sum()
+        meta_total = df_ano["Meta"].sum()
 
-    # -------------------- KPIs --------------------
-    st.subheader("📌 Indicadores por Ano")
+        ating = (fat_total / meta_total) * 100 if meta_total > 0 else 0
 
-    colunas = st.columns(len(anos))
+        col.metric(
+            label=f"Faturamento Total {ano}",
+            value=f"R$ {fat_total:,.0f}".replace(",", "."),
+            delta=f"Atingimento da Meta: {ating:.1f}%"
+        )
 
-    for i, ano in enumerate(anos):
-        with colunas[i]:
-            st.markdown("<div class='kpi-box'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-title'>Ano {ano}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Faturamento<br>R$ {dados_anos[ano]['fat']:,.0f}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Meta<br>R$ {dados_anos[ano]['meta']:,.0f}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Atingimento<br>{dados_anos[ano]['ating']:.1f}%</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    # -------------------- GRÁFICO --------------------
+    # ==============================
+    # GRÁFICO COMPARATIVO LADO A LADO
+    # ==============================
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
-    fig = px.bar(
-        df,
-        x=col_mes,
+    df_comp = df[df["Ano"].isin([2024, 2025])].copy()
+    df_comp = df_comp.sort_values(["Mês_num", "Ano"])
+
+    # Criar coluna formatada para texto nas barras
+    df_comp["Valor_fmt"] = df_comp["Faturamento - Valor"].apply(
+        lambda x: f"R$ {x:,.0f}".replace(",", ".")
+    )
+
+    fig_comp = px.bar(
+        df_comp,
+        x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",
-        text=df["Faturamento - Valor"].apply(lambda x: f"R$ {x:,.0f}"),
-        template="plotly_white",
+        barmode="group",  # LADO A LADO
+        text="Valor_fmt",
         color_discrete_map={
-            anos[0]: "#F28E2B",  # laranja
-            anos[1]: "#1F77B4"   # azul
+            2024: "#FF8C00",  # Laranja escuro
+            2025: "#0047AB"   # Azul forte
+        },
+        labels={
+            "Faturamento - Valor": "Faturamento (R$)",
+            "Mês": "Mês"
         }
     )
 
-    fig.update_layout(
-        xaxis_title="Mês",
-        yaxis_title="Faturamento (R$)",
-        legend_title="Ano",
-        bargap=0.12,
-        height=550
+    fig_comp.update_traces(
+        textposition="outside",
+        textfont=dict(size=12, color="black")
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    fig_comp.update_layout(
+        yaxis_title="Faturamento (R$)",
+        xaxis_title="Mês",
+        bargap=0.25,
+        plot_bgcolor="white",
+        title_font=dict(size=22)
+    )
 
-    # -------------------- TABELA --------------------
-    st.subheader("📋 Dados Detalhados")
+    st.plotly_chart(fig_comp, use_container_width=True)
 
-    df_show = df.copy()
-    df_show["Faturamento - Valor"] = df_show["Faturamento - Valor"].apply(lambda x: f"R$ {x:,.2f}")
-    df_show["Meta"] = df_show["Meta"].apply(lambda x: f"R$ {x:,.2f}")
+    # ==============================
+    # TABELA FINAL (FORMATADA)
+    # ==============================
+    st.subheader("📄 Dados Consolidados")
 
-    st.dataframe(df_show, use_container_width=True)
+    df_display = df.copy()
+    df_display["Faturamento - Valor"] = df_display["Faturamento - Valor"].apply(
+        lambda x: f"R$ {x:,.0f}".replace(",", ".")
+    )
+    df_display["Meta"] = df_display["Meta"].apply(
+        lambda x: f"R$ {x:,.0f}".replace(",", ".")
+    )
+
+    st.dataframe(df_display, use_container_width=True)
+
+else:
+    st.info("Envie um arquivo Excel para iniciar.")
+
