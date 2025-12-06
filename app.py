@@ -2,32 +2,24 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(
-    page_title="Dashboard Financeiro",
-    layout="wide"
-)
+# ================= CONFIGURAÇÃO =================
+st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
+st.title("📊 Dashboard Financeiro – Comparativo 2024 x 2025")
 
-st.title("📊 Dashboard Financeiro")
-
-# ==============================
-# Upload do arquivo
-# ==============================
-st.subheader("Envie sua planilha Excel")
-uploaded_file = st.file_uploader("Selecione o arquivo", type=["xlsx"])
+# ================= UPLOAD =================
+uploaded_file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
-    # Garantir formatação numérica
+    # Normaliza número
     df["Faturamento - Valor"] = pd.to_numeric(df["Faturamento - Valor"], errors="coerce")
     df["Meta"] = pd.to_numeric(df["Meta"], errors="coerce")
 
     # Extrai número do mês para ordenar
-    df["Mês_num"] = df["Mês"].str[:2].astype(int)
+    df["Mes_Num"] = df["Mês"].str[:2].astype(int)
 
-    # ==============================
-    # CARDS POR ANO
-    # ==============================
+    # ================= CARDS RESUMIDOS =================
     st.subheader("📌 Indicadores Gerais")
 
     col1, col2 = st.columns(2)
@@ -37,75 +29,69 @@ if uploaded_file:
 
         fat_total = df_ano["Faturamento - Valor"].sum()
         meta_total = df_ano["Meta"].sum()
-
         ating = (fat_total / meta_total) * 100 if meta_total > 0 else 0
 
         col.metric(
-            label=f"Faturamento Total {ano}",
-            value=f"R$ {fat_total:,.0f}".replace(",", "."),
-            delta=f"Atingimento da Meta: {ating:.1f}%"
+            label=f"Resumo {ano}",
+            value=f"Faturamento: R$ {fat_total:,.0f}".replace(",", "."),
+            delta=f"{ating:.1f}% da Meta (Meta: R$ {meta_total:,.0f})".replace(",", ".")
         )
 
-    # ==============================
-    # GRÁFICO COMPARATIVO LADO A LADO
-    # ==============================
+    # ================= GRÁFICO LADO A LADO =================
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
-    df_comp = df[df["Ano"].isin([2024, 2025])].copy()
-    df_comp = df_comp.sort_values(["Mês_num", "Ano"])
+    df_plot = df[df["Ano"].isin([2024, 2025])].copy()
+    df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
 
-    # Criar coluna formatada para texto nas barras
-    df_comp["Valor_fmt"] = df_comp["Faturamento - Valor"].apply(
+    df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
         lambda x: f"R$ {x:,.0f}".replace(",", ".")
     )
 
-    fig_comp = px.bar(
-        df_comp,
+    fig = px.bar(
+        df_plot,
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",  # LADO A LADO
+        barmode="group",  # <--- LADO A LADO REAL
         text="Valor_fmt",
         color_discrete_map={
             2024: "#FF8C00",  # Laranja escuro
-            2025: "#0047AB"   # Azul forte
-        },
-        labels={
-            "Faturamento - Valor": "Faturamento (R$)",
-            "Mês": "Mês"
+            2025: "#005BBB",  # Azul forte
         }
     )
 
-    fig_comp.update_traces(
+    fig.update_traces(
         textposition="outside",
         textfont=dict(size=12, color="black")
     )
 
-    fig_comp.update_layout(
+    fig.update_layout(
         yaxis_title="Faturamento (R$)",
         xaxis_title="Mês",
         bargap=0.25,
-        plot_bgcolor="white",
-        title_font=dict(size=22)
+        height=550,
+        plot_bgcolor="white"
     )
 
-    st.plotly_chart(fig_comp, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    # ==============================
-    # TABELA FINAL (FORMATADA)
-    # ==============================
-    st.subheader("📄 Dados Consolidados")
+    # ================= TABELA FINAL PIVOTADA =================
+    st.subheader("📄 Tabela Comparativa (Pivotada)")
 
-    df_display = df.copy()
-    df_display["Faturamento - Valor"] = df_display["Faturamento - Valor"].apply(
-        lambda x: f"R$ {x:,.0f}".replace(",", ".")
-    )
-    df_display["Meta"] = df_display["Meta"].apply(
-        lambda x: f"R$ {x:,.0f}".replace(",", ".")
-    )
+    tabela = df.pivot_table(
+        index="Mês",
+        columns="Ano",
+        values="Faturamento - Valor",
+        aggfunc="sum"
+    ).reset_index()
 
-    st.dataframe(df_display, use_container_width=True)
+    # Formatação R$
+    for ano in [2024, 2025]:
+        tabela[ano] = tabela[ano].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
+
+    st.dataframe(tabela, use_container_width=True)
 
 else:
-    st.info("Envie um arquivo Excel para iniciar.")
+    st.info("Envie o arquivo Excel para visualizar o dashboard.")
+
 
