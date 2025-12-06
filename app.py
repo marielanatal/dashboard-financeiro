@@ -12,20 +12,21 @@ st.markdown("""
     font-weight: 700 !important;
     color: #1f4e79 !important;
 }
-.kpi-card {
-    background-color: white;
-    padding: 22px;
+.kpi-box {
+    background: white;
+    padding: 20px;
     border-radius: 14px;
     box-shadow: 0px 2px 8px rgba(0,0,0,0.15);
 }
 .kpi-title {
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 600;
+    color: #444;
 }
 .kpi-value {
     font-size: 28px;
     font-weight: 800;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -39,46 +40,41 @@ if uploaded_file:
 
     df = pd.read_excel(uploaded_file)
 
-    # Identificando coluna de mês automaticamente
+    # Identifica nome da coluna de Mês
     col_mes = [c for c in df.columns if "Mês" in c][0]
 
+    # Criar número do mês
     df["Mes_Num"] = df[col_mes].str[:2].astype(int)
+
     df = df.sort_values(["Ano", "Mes_Num"])
 
-    # -------------------- CALCULOS POR ANO --------------------
     anos = sorted(df["Ano"].unique())
-    
     dados_anos = {}
 
     for ano in anos:
         df_ano = df[df["Ano"] == ano]
-
         fat = df_ano["Faturamento - Valor"].sum()
         meta = df_ano["Meta"].sum()
         ating = (fat / meta * 100) if meta > 0 else 0
 
-        dados_anos[ano] = {
-            "fat": fat,
-            "meta": meta,
-            "ating": ating
-        }
+        dados_anos[ano] = {"fat": fat, "meta": meta, "ating": ating}
 
-    # -------------------- KPIs POR ANO --------------------
+    # -------------------- KPIs --------------------
     st.subheader("📌 Indicadores por Ano")
 
-    cols = st.columns(len(anos))
+    colunas = st.columns(len(anos))
 
     for i, ano in enumerate(anos):
-        with cols[i]:
-            st.markdown(f"<div class='kpi-card'>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-title'>📅 Ano {ano}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Faturamento:<br> R$ {dados_anos[ano]['fat']:,.2f}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Meta:<br> R$ {dados_anos[ano]['meta']:,.2f}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-value'>Atingimento:<br> {dados_anos[ano]['ating']:.1f}%</div>", unsafe_allow_html=True)
-            st.markdown(f"</div>", unsafe_allow_html=True)
+        with colunas[i]:
+            st.markdown("<div class='kpi-box'>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-title'>Ano {ano}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-value'>Faturamento<br>R$ {dados_anos[ano]['fat']:,.0f}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-value'>Meta<br>R$ {dados_anos[ano]['meta']:,.0f}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-value'>Atingimento<br>{dados_anos[ano]['ating']:.1f}%</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # -------------------- GRÁFICO COMPARATIVO --------------------
-    st.subheader("📊 Comparativo Mensal 2024 x 2025")
+    # -------------------- GRÁFICO --------------------
+    st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
     fig = px.bar(
         df,
@@ -86,24 +82,29 @@ if uploaded_file:
         y="Faturamento - Valor",
         color="Ano",
         barmode="group",
-        text_auto=".2s",
-        template="plotly_white"
+        text=df["Faturamento - Valor"].apply(lambda x: f"R$ {x:,.0f}"),
+        template="plotly_white",
+        color_discrete_map={
+            anos[0]: "#F28E2B",  # laranja
+            anos[1]: "#1F77B4"   # azul
+        }
     )
 
     fig.update_layout(
         xaxis_title="Mês",
         yaxis_title="Faturamento (R$)",
         legend_title="Ano",
-        bargap=0.15
+        bargap=0.12,
+        height=550
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------- TABELA COM R$ --------------------
+    # -------------------- TABELA --------------------
     st.subheader("📋 Dados Detalhados")
 
-    df_display = df.copy()
-    df_display["Faturamento - Valor"] = df_display["Faturamento - Valor"].apply(lambda x: f"R$ {x:,.2f}")
-    df_display["Meta"] = df_display["Meta"].apply(lambda x: f"R$ {x:,.2f}")
+    df_show = df.copy()
+    df_show["Faturamento - Valor"] = df_show["Faturamento - Valor"].apply(lambda x: f"R$ {x:,.2f}")
+    df_show["Meta"] = df_show["Meta"].apply(lambda x: f"R$ {x:,.2f}")
 
-    st.dataframe(df_display, use_container_width=True)
+    st.dataframe(df_show, use_container_width=True)
