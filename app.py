@@ -7,6 +7,15 @@ st.title("📊 Dashboard Financeiro – Comparativo 2024 x 2025")
 
 uploaded_file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
 
+# Função para encurtar números
+def format_short(num):
+    if num >= 1_000_000:
+        return f"{num/1_000_000:.1f}M"
+    elif num >= 1_000:
+        return f"{num/1_000:.1f}K"
+    else:
+        return f"{num:.0f}"
+
 if uploaded_file:
 
     df = pd.read_excel(uploaded_file)
@@ -17,9 +26,9 @@ if uploaded_file:
 
     df["Mes_Num"] = df["Mês"].str[:2].astype(int)
 
-    # -------------------------------
-    # CARDS
-    # -------------------------------
+    # -----------------------------------
+    # CARDS POR ANO
+    # -----------------------------------
     st.subheader("📌 Resumo por Ano")
     col1, col2 = st.columns(2)
 
@@ -35,9 +44,9 @@ if uploaded_file:
             delta=f"{ating:.1f}% da Meta (Meta: R$ {meta_total:,.0f})".replace(",", ".")
         )
 
-    # -------------------------------
-    # GRÁFICO LADO A LADO (CORRETO)
-    # -------------------------------
+    # -----------------------------------
+    # GRÁFICO LADO A LADO
+    # -----------------------------------
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
     df_plot = df.groupby(
@@ -45,29 +54,27 @@ if uploaded_file:
     )["Faturamento - Valor"].sum()
 
     df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
-
     df_plot["Ano"] = df_plot["Ano"].astype(str)
 
-    df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
-        lambda x: f"R$ {x:,.0f}".replace(",", ".")
-    )
+    # Texto curto para o topo das barras
+    df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(format_short)
 
     fig = px.bar(
         df_plot,
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",    
+        barmode="group",
         text="Valor_fmt",
         color_discrete_map={
-            "2024": "#FF8C00",  
-            "2025": "#005BBB",  
+            "2024": "#FF8C00",  # Laranja
+            "2025": "#005BBB",  # Azul forte
         }
     )
 
     fig.update_traces(
         textposition="outside",
-        textfont=dict(size=16, color="black"),  # ← AQUI AUMENTEI O TAMANHO DA FONTE
+        textfont=dict(size=26, color="black", family="Arial Black"),  # ← AUMENTADO DE VERDADE
         cliponaxis=False
     )
 
@@ -75,16 +82,18 @@ if uploaded_file:
         yaxis_title="Faturamento (R$)",
         xaxis_title="Mês",
         bargap=0.28,
-        height=650,
-        plot_bgcolor="white"
+        height=700,
+        plot_bgcolor="white",
+        margin=dict(t=80, b=80)
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------------------
-    # TABELA FINAL
-    # -------------------------------
+    # -----------------------------------
+    # TABELA FINAL FORMATADA
+    # -----------------------------------
     st.subheader("📄 Tabela Comparativa por Ano")
+
     tabela = df.pivot_table(
         index="Mês",
         columns="Ano",
