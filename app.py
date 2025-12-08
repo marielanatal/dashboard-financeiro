@@ -79,20 +79,20 @@ if file:
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",
+        barmode="group",          # LADO A LADO (não mexa!)
         text="Faturamento - Valor",
         color_discrete_map={
             2024: "#FF7F0E",   # Laranja escuro
             2025: "#1F77B4"    # Azul
         },
-        height=500
+        height=550
     )
 
-    # Labels MAIORES
+    # 🔥 AQUI ESTÁ O AJUSTE DO TEXTO MAIOR
     fig.update_traces(
         texttemplate="R$ %{y:,.0f}",
         textposition="outside",
-        textfont_size=16  # TAMANHO MAIOR
+        textfont=dict(size=20, color="black")   # TAMANHO MAIOR + PRETO PARA FICAR LEGÍVEL
     )
 
     fig.update_layout(
