@@ -2,31 +2,34 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+# ===================== CONFIG =====================
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 st.title("📊 Dashboard Financeiro – Comparativo 2024 x 2025")
 
+# ===================== UPLOAD =====================
 uploaded_file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
 
 if uploaded_file:
 
     df = pd.read_excel(uploaded_file)
 
+    # Ajuste de tipos
     df["Ano"] = pd.to_numeric(df["Ano"], errors="coerce").astype(int)
     df["Faturamento - Valor"] = pd.to_numeric(df["Faturamento - Valor"], errors="coerce")
     df["Meta"] = pd.to_numeric(df["Meta"], errors="coerce")
 
+    # Extrai número do mês
     df["Mes_Num"] = df["Mês"].str[:2].astype(int)
 
-    # -------------------------------
-    # CARDS
-    # -------------------------------
+    # ===================== CARDS =====================
     st.subheader("📌 Resumo por Ano")
+
     col1, col2 = st.columns(2)
 
     for ano, col in zip([2024, 2025], [col1, col2]):
-        dados_ano = df[df["Ano"] == ano]
-        fat_total = dados_ano["Faturamento - Valor"].sum()
-        meta_total = dados_ano["Meta"].sum()
+        df_ano = df[df["Ano"] == ano]
+        fat_total = df_ano["Faturamento - Valor"].sum()
+        meta_total = df_ano["Meta"].sum()
         ating = (fat_total / meta_total * 100) if meta_total > 0 else 0
 
         col.metric(
@@ -35,20 +38,20 @@ if uploaded_file:
             delta=f"{ating:.1f}% da Meta (Meta: R$ {meta_total:,.0f})".replace(",", ".")
         )
 
-    # -------------------------------
-    # GRÁFICO LADO A LADO – CORREÇÃO DEFINITIVA
-    # -------------------------------
+    # ===================== GRÁFICO LADO A LADO =====================
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
+    # Agrupa para evitar duplicidades
     df_plot = df.groupby(
         ["Mês", "Mes_Num", "Ano"], as_index=False
     )["Faturamento - Valor"].sum()
 
     df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
 
-    # 🔥🔥🔥 CORREÇÃO FUNDAMENTAL – transforma Ano em categoria
+    # Converte Ano para string → ESSENCIAL para barras lado a lado
     df_plot["Ano"] = df_plot["Ano"].astype(str)
 
+    # Formatação do texto
     df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
         lambda x: f"R$ {x:,.0f}".replace(",", ".")
     )
@@ -58,33 +61,35 @@ if uploaded_file:
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",    # AGORA FUNCIONA
+        barmode="group",
         text="Valor_fmt",
         color_discrete_map={
             "2024": "#FF8C00",
-            "2025": "#005BBB",
+            "2025": "#005BBB"
         }
     )
 
+    # Labels MAIORES e com contorno
     fig.update_traces(
         textposition="outside",
-        textfont=dict(size=11, color="black")
+        textfont=dict(size=18, color="black"),
+        textoutlinecolor="white",
+        textoutlinewidth=3
     )
 
     fig.update_layout(
         yaxis_title="Faturamento (R$)",
         xaxis_title="Mês",
         bargap=0.25,
-        height=550,
+        height=600,
         plot_bgcolor="white"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------------------
-    # TABELA FINAL
-    # -------------------------------
+    # ===================== TABELA FINAL =====================
     st.subheader("📄 Tabela Comparativa por Ano")
+
     tabela = df.pivot_table(
         index="Mês",
         columns="Ano",
@@ -99,4 +104,5 @@ if uploaded_file:
 
 else:
     st.info("Envie o arquivo Excel para visualizar o dashboard.")
+
 
