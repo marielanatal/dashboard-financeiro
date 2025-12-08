@@ -2,128 +2,102 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
+st.title("📊 Dashboard Financeiro – Comparativo 2024 x 2025")
 
-# ==========================================
-#  CARREGAMENTO DO ARQUIVO
-# ==========================================
-st.title("📊 Dashboard Financeiro — 2024 x 2025")
+uploaded_file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
 
-file = st.file_uploader("Envie sua planilha Excel", type=["xlsx"])
+if uploaded_file:
 
-if file:
-    df = pd.read_excel(file)
+    df = pd.read_excel(uploaded_file)
 
-    # ==========================================
-    #  AJUSTES DE COLUNAS
-    # ==========================================
-    df["Mês"] = df["Mês"].astype(str)
-    df["Ano"] = df["Ano"].astype(int)
-    df["Faturamento - Valor"] = df["Faturamento - Valor"].astype(float)
-    df["Meta"] = df["Meta"].astype(float)
+    df["Ano"] = pd.to_numeric(df["Ano"], errors="coerce").astype(int)
+    df["Faturamento - Valor"] = pd.to_numeric(df["Faturamento - Valor"], errors="coerce")
+    df["Meta"] = pd.to_numeric(df["Meta"], errors="coerce")
 
-    # ==========================================
-    #  RESUMO PARA CARDS
-    # ==========================================
-    resumo = df.groupby("Ano").agg({
-        "Faturamento - Valor": "sum",
-        "Meta": "sum"
-    }).reset_index()
+    df["Mes_Num"] = df["Mês"].str[:2].astype(int)
 
-    resumo["Atingimento"] = resumo["Faturamento - Valor"] / resumo["Meta"]
-
+    # -------------------------------
+    # CARDS
+    # -------------------------------
+    st.subheader("📌 Resumo por Ano")
     col1, col2 = st.columns(2)
 
-    ano_2024 = resumo[resumo["Ano"] == 2024].iloc[0]
-    ano_2025 = resumo[resumo["Ano"] == 2025].iloc[0]
+    for ano, col in zip([2024, 2025], [col1, col2]):
+        dados_ano = df[df["Ano"] == ano]
+        fat_total = dados_ano["Faturamento - Valor"].sum()
+        meta_total = dados_ano["Meta"].sum()
+        ating = (fat_total / meta_total * 100) if meta_total > 0 else 0
 
-    # CARD 2024
-    with col1:
-        st.markdown(
-            f"""
-            <div style="padding:20px;border-radius:12px;background:#f4f4f4">
-                <h2>📘 Ano 2024</h2>
-                <h3>Faturamento: R$ {ano_2024['Faturamento - Valor']:,.0f}</h3>
-                <h3>Meta: R$ {ano_2024['Meta']:,.0f}</h3>
-                <h3>Atingimento: {ano_2024['Atingimento']*100:.1f}%</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
+        col.metric(
+            label=f"Ano {ano}",
+            value=f"Faturamento: R$ {fat_total:,.0f}".replace(",", "."),
+            delta=f"{ating:.1f}% da Meta (Meta: R$ {meta_total:,.0f})".replace(",", ".")
         )
 
-    # CARD 2025
-    with col2:
-        st.markdown(
-            f"""
-            <div style="padding:20px;border-radius:12px;background:#f4f4f4">
-                <h2>📙 Ano 2025</h2>
-                <h3>Faturamento: R$ {ano_2025['Faturamento - Valor']:,.0f}</h3>
-                <h3>Meta: R$ {ano_2025['Meta']:,.0f}</h3>
-                <h3>Atingimento: {ano_2025['Atingimento']*100:.1f}%</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.markdown("---")
-
-    # ==========================================
-    #  GRÁFICO LADO A LADO (MODELO B)
-    # ==========================================
+    # -------------------------------
+    # GRÁFICO LADO A LADO – CORREÇÃO DEFINITIVA
+    # -------------------------------
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
-    df_sorted = df.sort_values(["Mês", "Ano"])
+    df_plot = df.groupby(
+        ["Mês", "Mes_Num", "Ano"], as_index=False
+    )["Faturamento - Valor"].sum()
+
+    df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
+
+    # 🔥🔥🔥 CORREÇÃO FUNDAMENTAL – transforma Ano em categoria
+    df_plot["Ano"] = df_plot["Ano"].astype(str)
+
+    df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
+        lambda x: f"R$ {x:,.0f}".replace(",", ".")
+    )
 
     fig = px.bar(
-        df_sorted,
+        df_plot,
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",          # LADO A LADO (não mexa!)
-        text="Faturamento - Valor",
+        barmode="group",    # AGORA FUNCIONA
+        text="Valor_fmt",
         color_discrete_map={
-            2024: "#FF7F0E",   # Laranja escuro
-            2025: "#1F77B4"    # Azul
-        },
-        height=550
+            "2024": "#FF8C00",
+            "2025": "#005BBB",
+        }
     )
 
-    # 🔥 AQUI ESTÁ O AJUSTE DO TEXTO MAIOR
     fig.update_traces(
-        texttemplate="R$ %{y:,.0f}",
         textposition="outside",
-        textfont=dict(size=20, color="black")   # TAMANHO MAIOR + PRETO PARA FICAR LEGÍVEL
+        textfont=dict(size=11, color="black")
     )
 
     fig.update_layout(
-        xaxis_title="Mês",
         yaxis_title="Faturamento (R$)",
+        xaxis_title="Mês",
         bargap=0.25,
-        legend_title="Ano",
-        uniformtext_minsize=16,
-        uniformtext_mode="show"
+        height=550,
+        plot_bgcolor="white"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("---")
-
-    # ==========================================
-    #  TABELA FINAL FORMATADA
-    # ==========================================
-    st.subheader("📄 Tabela Consolidada (R$)")
-
+    # -------------------------------
+    # TABELA FINAL
+    # -------------------------------
+    st.subheader("📄 Tabela Comparativa por Ano")
     tabela = df.pivot_table(
         index="Mês",
         columns="Ano",
         values="Faturamento - Valor",
         aggfunc="sum"
-    ).fillna(0)
+    ).reset_index()
 
-    tabela = tabela.applymap(lambda x: f"R$ {x:,.0f}")
+    for ano in tabela.columns[1:]:
+        tabela[ano] = tabela[ano].apply(lambda x: f"R$ {x:,.0f}".replace(",", "."))
 
     st.dataframe(tabela, use_container_width=True)
 
 else:
-    st.info("Envie a planilha para gerar o dashboard.")
+    st.info("Envie o arquivo Excel para visualizar o dashboard.")
+
 
