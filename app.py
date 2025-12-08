@@ -36,7 +36,7 @@ if uploaded_file:
         )
 
     # -------------------------------
-    # GRÁFICO LADO A LADO – CORREÇÃO DEFINITIVA
+    # GRÁFICO LADO A LADO (CORRETO)
     # -------------------------------
     st.subheader("📊 Comparativo Mensal 2024 x 2025 (Lado a Lado)")
 
@@ -46,7 +46,6 @@ if uploaded_file:
 
     df_plot = df_plot.sort_values(["Mes_Num", "Ano"])
 
-    # 🔥🔥🔥 CORREÇÃO FUNDAMENTAL – transforma Ano em categoria
     df_plot["Ano"] = df_plot["Ano"].astype(str)
 
     df_plot["Valor_fmt"] = df_plot["Faturamento - Valor"].apply(
@@ -58,24 +57,25 @@ if uploaded_file:
         x="Mês",
         y="Faturamento - Valor",
         color="Ano",
-        barmode="group",    # AGORA FUNCIONA
+        barmode="group",    
         text="Valor_fmt",
         color_discrete_map={
-            "2024": "#FF8C00",
-            "2025": "#005BBB",
+            "2024": "#FF8C00",  
+            "2025": "#005BBB",  
         }
     )
 
     fig.update_traces(
         textposition="outside",
-        textfont=dict(size=11, color="black")
+        textfont=dict(size=16, color="black"),  # ← AQUI AUMENTEI O TAMANHO DA FONTE
+        cliponaxis=False
     )
 
     fig.update_layout(
         yaxis_title="Faturamento (R$)",
         xaxis_title="Mês",
-        bargap=0.25,
-        height=550,
+        bargap=0.28,
+        height=650,
         plot_bgcolor="white"
     )
 
@@ -99,5 +99,6 @@ if uploaded_file:
 
 else:
     st.info("Envie o arquivo Excel para visualizar o dashboard.")
+
 
 
